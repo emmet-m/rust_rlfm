@@ -1,13 +1,21 @@
 use std::collections::HashMap;
 
-pub struct BWTString {
-    pub transform: String,
+extern crate unicode_segmentation;
+use unicode_segmentation::UnicodeSegmentation;
+
+pub struct BWT {
+    // The BWT transform of a given input string
+    transform: String,
+    // the C table of our transform. given bb = `sort(transform)`, 
+    // the table maps a char to it's index in bb
     c_table: HashMap<char, u64>,
+    // The maps a char to the number of times it occurs in `transform`
     amount_of: HashMap<char, u64>,
+    // The position of the last char of the original string in `transform`
     last_char_pos: u64
 }
 
-pub fn make_bwt(from: String) -> BWTString {
+pub fn make_bwt(from: String) -> BWT {
     let mut suffixes: Vec<String> =  vec![String::new(); from.len()];
     let mut rot_str: String = from.clone();
 
@@ -53,11 +61,110 @@ pub fn make_bwt(from: String) -> BWTString {
         }
     }
 
-    BWTString {
+    BWT {
         transform: bwt_chars,
         c_table,
         amount_of,
         last_char_pos
+    }
+}
+
+struct SearchState {
+    // The current char we are searching for
+    curr_char: char,
+    // The lowest index we have searched for
+    lo: u64,
+    // The highest index we have searched for
+    hi: u64,
+    // The amount of `curr_char` before index lo 
+    occ_lo: u64,
+    // The amount of `curr_char` after index lo 
+    occ_hi: u64,
+    // Did the search fail?
+    did_fail: bool
+}
+
+impl BWT {
+
+    /**
+     * Computes the rank of a given character before an index.
+     * The rank of a character on an index is the amount of times
+     *  that character occurs before the given index.
+     */
+    fn _rank(&self, c: char, ind: u64) -> u64 {
+        let mut count = 0;
+        for i in self.transform.chars() {
+            if c == i {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
+    /** 
+     * Finds the amount of characters `goal` that occurs before state.curr_char,
+     * and updates the state accordingly 
+     */
+    fn _reverse_search(&self, state: &SearchState, goal: char) -> SearchState {
+        let mut new_state = SearchState {
+            curr_char: goal,
+            lo: 0,
+            hi: 0,
+            occ_lo: 0,
+            occ_hi: 0,
+            did_fail: false
+        };
+
+        // Check if character exists in our transform somewhere
+        if self.amount_of.get(&goal).is_none() {
+            new_state.did_fail = true;
+            return new_state;
+        }
+
+        // Update the lo and hi occurences
+        new_state.occ_lo = self._rank(goal, state.lo);
+        new_state.occ_hi = self._rank(goal, state.hi);
+
+        // Update lo and hi according to matches
+        new_state.lo = self.c_table[&goal] + new_state.occ_lo;
+        new_state.hi = self.c_table[&goal] + new_state.occ_hi;
+
+        if new_state.lo >= new_state.hi {
+            new_state.did_fail = true;
+        }
+
+        new_state
+    }
+    
+    pub fn find_num_occurences(&self, pattern: String) -> u64 {
+        // The empty string matches all the gaps between characters,
+        // including before the first character and after the last character
+        if pattern.len() == 0 {
+            self.transform.len() + 1;
+        }
+        
+        let rev_pattern = pattern.graphemes(true).rev().collect::<String>();
+        let mut it = rev_pattern.chars().peekable();
+        let mut c: char = it.next().unwrap();
+        let mut state = SearchState {
+            curr_char: c,
+            lo: self.c_table[&c],
+            hi: self.c_table[&c] + self.amount_of[&c],
+            occ_lo: 0, // will be set in the next search
+            occ_hi: 0,
+            did_fail: false
+        };
+
+        while it.peek().is_some() {
+            c = it.next().unwrap();
+            state = self._reverse_search(&state, c);
+            if state.did_fail {
+                return 0;
+            }
+        }
+
+        state.hi - state.lo
     }
 }
 
