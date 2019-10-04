@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 pub struct BWTString {
-    transform: String,
+    pub transform: String,
     c_table: HashMap<char, u64>,
     amount_of: HashMap<char, u64>,
     last_char_pos: u64

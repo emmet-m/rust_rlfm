@@ -1,4 +1,0 @@
-mod bwt;
-
-fn main() {
-}
