@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-extern crate unicode_segmentation;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct BWT {
