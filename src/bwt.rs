@@ -8,9 +8,9 @@ pub struct BWT {
     transform: String,
     // the C table of our transform. given bb = `sort(transform)`, 
     // the table maps a char to it's index in bb
-    c_table: HashMap<char, u64>,
+    c_table: HashMap<char, usize>,
     // The maps a char to the number of times it occurs in `transform`
-    amount_of: HashMap<char, u64>,
+    amount_of: HashMap<char, usize>,
     // The position of the last char of the original string in `transform`
     last_char_pos: u64
 }
@@ -45,7 +45,7 @@ pub fn make_bwt(from: String) -> BWT {
     let mut c_table = HashMap::new();
     let mut amount_of = HashMap::new();
     for i in 0..bwt_sorted.len() {
-        c_table.entry(bwt_sorted[i]).or_insert(i as u64);
+        c_table.entry(bwt_sorted[i]).or_insert(i);
         match amount_of.get(&bwt_sorted[i]) {
             Some(&x) => amount_of.insert(bwt_sorted[i], x + 1),
             _ => amount_of.insert(bwt_sorted[i], 1)
@@ -73,13 +73,13 @@ struct SearchState {
     // The current char we are searching for
     curr_char: char,
     // The lowest index we have searched for
-    lo: u64,
+    lo: usize,
     // The highest index we have searched for
-    hi: u64,
+    hi: usize,
     // The amount of `curr_char` before index lo 
-    occ_lo: u64,
+    occ_lo: usize,
     // The amount of `curr_char` after index lo 
-    occ_hi: u64,
+    occ_hi: usize,
     // Did the search fail?
     did_fail: bool
 }
@@ -91,10 +91,10 @@ impl BWT {
      * The rank of a character on an index is the amount of times
      *  that character occurs before the given index.
      */
-    fn _rank(&self, c: char, ind: u64) -> u64 {
+    fn _rank(&self, c: char, ind: usize) -> usize {
         let mut count = 0;
-        for i in self.transform.chars() {
-            if c == i {
+        for i in 0..std::cmp::max(ind, self.transform.len()) {
+            if self.transform.chars().nth(i).unwrap() == c {
                 count += 1;
             }
         }
@@ -137,11 +137,11 @@ impl BWT {
         new_state
     }
     
-    pub fn find_num_occurences(&self, pattern: String) -> u64 {
+    pub fn find_num_occurences(&self, pattern: String) -> usize {
         // The empty string matches all the gaps between characters,
         // including before the first character and after the last character
         if pattern.len() == 0 {
-            self.transform.len() + 1;
+            return self.transform.chars().count() + 1;
         }
         
         let rev_pattern = pattern.graphemes(true).rev().collect::<String>();
@@ -180,13 +180,13 @@ mod tests {
 
         assert_eq!(3, ban_bwt.last_char_pos);
 
-        assert_eq!(Some(&(0 as u64)), ban_bwt.c_table.get(&'a'));
-        assert_eq!(Some(&(3 as u64)), ban_bwt.c_table.get(&'b'));
-        assert_eq!(Some(&(4 as u64)), ban_bwt.c_table.get(&'n'));
+        assert_eq!(Some(&(0)), ban_bwt.c_table.get(&'a'));
+        assert_eq!(Some(&(3)), ban_bwt.c_table.get(&'b'));
+        assert_eq!(Some(&(4)), ban_bwt.c_table.get(&'n'));
 
-        assert_eq!(Some(&(3 as u64)), ban_bwt.amount_of.get(&'a'));
-        assert_eq!(Some(&(1 as u64)), ban_bwt.amount_of.get(&'b'));
-        assert_eq!(Some(&(2 as u64)), ban_bwt.amount_of.get(&'n'));
+        assert_eq!(Some(&(3)), ban_bwt.amount_of.get(&'a'));
+        assert_eq!(Some(&(1)), ban_bwt.amount_of.get(&'b'));
+        assert_eq!(Some(&(2)), ban_bwt.amount_of.get(&'n'));
    }
 
     #[test]
@@ -196,10 +196,10 @@ mod tests {
 
         assert_eq!(4, mis_bwt.last_char_pos);
 
-        assert_eq!(Some(&(0 as u64)), mis_bwt.c_table.get(&'i'));
-        assert_eq!(Some(&(5 as u64)), mis_bwt.c_table.get(&'p'));
+        assert_eq!(Some(&(0)), mis_bwt.c_table.get(&'i'));
+        assert_eq!(Some(&(5)), mis_bwt.c_table.get(&'p'));
 
-        assert_eq!(Some(&(4 as u64)), mis_bwt.amount_of.get(&'s'));
-        assert_eq!(Some(&(1 as u64)), mis_bwt.amount_of.get(&'m'));
+        assert_eq!(Some(&(4)), mis_bwt.amount_of.get(&'s'));
+        assert_eq!(Some(&(1)), mis_bwt.amount_of.get(&'m'));
     }
 }
